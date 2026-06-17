@@ -1,0 +1,142 @@
+@startuml
+
+
+skinparam componentStyle uml2
+
+
+skinparam DefaultFontName "Impact, Helvetica, sans-serif" 
+skinparam DefaultFontSize 18
+skinparam DefaultFontStyle bold
+
+
+skinparam TitleFontName "Impact, Helvetica, sans-serif"
+skinparam TitleFontSize 70
+skinparam TitleFontStyle bold
+skinparam TitleFontColor black
+
+
+skinparam rectangle {
+    BackgroundColor white
+    BorderColor black
+    BorderThickness 3  
+    RoundCorner 0
+}
+
+skinparam component {
+    BackgroundColor white
+    BorderColor black
+    BorderThickness 3   
+    RoundCorner 0
+}
+
+
+skinparam package {
+    FontStyle bold
+    FontSize 24
+}
+
+
+skinparam LinetThickness 8 
+
+title Hybrid AI Multi-Organ Digital Twin Framework Architecture
+
+
+package "Presentation Layer (User Interface)" {
+    [Streamlit Web App] as UI <<Application>>
+    note right of UI
+        - Trimester Slider Configuration
+        - Dual Compound Comparison Mode
+        - Plotly Visualization Engine
+        - PubChem API Integration
+    end note
+}
+
+package "Data & Storage Layer" {
+    file "Multiorganmodel.pt" as ModelBundle <<File>>
+    database "PRETRAINED_MULTIORGAN_PREDICTIONS_COMPLETED.csv" as PrecomputedDB <<Database>>
+}
+
+package "Core AI Pipeline (Backend Engine)" {
+
+    package "Input & Feature Engineering Layer" {
+        [Input Processor] as InputLayer
+        note bottom of InputLayer: SMILES / Molecular Structure
+        
+        component "RDKit Engine" as RDKit <<Library>>
+        component "Morgan Fingerprints (2048-bit)" as Morgan <<Library>>
+        component "MACCS Keys / Descriptors" as MACCS <<Library>>
+    }
+
+    package "Organ Digital Twin Module" as OrganDigitalTwinModule {
+       
+        component "Liver Module" as LiverMod <<AI Model>> #FFD7D7 {
+            
+            artifact "**Pre-trained Source**\n(CYP3A4 Data)" as CYP3A4_Source
+            
+            [Target DNN Structure] as Target_DNN
+            
+            [Target CYP3A7 Data] as CYP3A7_Data
+            
+            CYP3A4_Source ==> Target_DNN : Transfer Learning:\nLearned Features
+            Target_DNN ..> CYP3A7_Data : Fine-tuning
+            
+            
+            [Trained CYP3A7 Model] as TransferLearning
+        }
+        
+        note top of LiverMod
+            **TRANSFER LEARNING METHODOLOGY**
+            Leverages a deep understanding of general binding
+            dynamics from a well-studied related enzyme
+            (CYP3A4) to boost performance on a data-scarce
+            fetal target (CYP3A7).
+        end note
+
+        component "Placenta Module" as PlacentaMod <<AI Model>> {
+            [Optimized XGBoost] as XGBoost
+        }
+        
+        component "Kidney Module" as KidneyMod <<AI Model>> {
+            [CatBoost Classifier] as CatBoost
+            [Conformal Prediction] as Conformal
+        }
+    }
+
+    package "Aggregation & Inference Layer" {
+        component "Aggregation Layer" as AggLayer {
+            [Trimester Ontogeny Map] as Ontogeny
+            [Positive-Constrained Ridge Regression] as MetaLearner
+        }
+    }
+}
+
+
+
+
+UI --> InputLayer : 1. Submits SMILES
+UI ..> PrecomputedDB : Checks for Cached Predictions
+UI ..> ModelBundle : Dynamic Runtime Extraction (joblib.load)
+
+
+InputLayer --> RDKit : Sends Mol Object
+RDKit --> Morgan : Computes Bit Vectors
+RDKit --> MACCS : Extracts Physicochemical Descriptors
+
+
+Morgan --> OrganDigitalTwinModule : Sends 2058 Vector Row
+MACCS --> OrganDigitalTwinModule
+
+
+OrganDigitalTwinModule ..> Target_DNN
+OrganDigitalTwinModule ..> XGBoost
+OrganDigitalTwinModule ..> KidneyMod
+
+
+TransferLearning --> AggLayer : Raw Liver Risk
+PlacentaMod --> AggLayer : Raw Placenta Risk
+KidneyMod --> AggLayer : Raw Kidney Risk
+
+
+AggLayer --> UI : 2. Returns Global Risk Index & Plasma PK Curve (Toxicity/Binding Predictions)
+
+@enduml
