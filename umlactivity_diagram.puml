@@ -1,0 +1,59 @@
+@startuml
+skinparam DefaultFontName "Helvetica, Arial, sans-serif"
+skinparam DefaultFontSize 14
+skinparam DefaultFontStyle bold
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor black
+skinparam ActivityBorderThickness 2
+skinparam DiamondBackgroundColor white
+skinparam DiamondBorderColor black
+skinparam DiamondBorderThickness 2
+skinparam ArrowColor black
+skinparam ArrowThickness 2
+
+title  <size:36><b> Activity Diagram: Hybrid AI Multiorgan Digital Twin Prediction Workflow
+
+start
+
+:Input SMILES String via Web UI;
+
+:Query PubChem REST API
+(Retrieve Drug Name/Title);
+
+:Generate Molecular Descriptors
+(10 RDKit Properties + 2048-bit Morgan FP);
+
+if (SMILES entry found in 
+PRETRAINED_MULTIORGAN_PREDICTIONS_COMPLETED.csv?) then (Yes)
+  :Fetch Cached Organ Risks 
+  from Precomputed Database;
+  note right: Executed via pandas lookups\nand cached with @st.cache_data
+else (No)
+  :Pass 1x2058 Vector to Live Inference Engine;
+  :Run Multi-Organ AI Models 
+  (Liver, Kidney, Placenta Predictions);
+  note right: Handled via Multiorganmodel.pt\nloaded by @st.cache_resource
+endif
+
+:Extract Sidebar Inputs
+(Selected Trimester & Simulation Duration);
+
+:Apply Biomimetic Ontogeny Factors
+(Scale raw organ risks by Trimester Map);
+
+:Execute Ordinary Differential Equations
+(Run PK Simulation Framework);
+
+:Calculate Target Binding Intensity (pKd)
+& Identify Top 2 Vulnerability Vectors;
+
+partition "Presentation & Visualization Layer" {
+  :Render Structural Toxicity & Lipinski Profiles;
+  :Plot Relative Risk Geometry (Radar Chart);
+  :Generate Plasma Availability Profile Curve (Plotly);
+  :Display Structural Homology (Tanimoto Matching Rows);
+  :Expose CSV Report Compilation & Download Triggers;
+}
+
+stop
+@enduml

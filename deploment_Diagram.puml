@@ -1,0 +1,91 @@
+@startuml
+
+skinparam componentStyle uml2
+skinparam rectangle {
+    BackgroundColor white
+    BorderColor black
+    BorderThickness 5   
+    RoundCorner 0
+}
+skinparam node {
+    BackgroundColor white
+    BorderColor black
+    BorderThickness 5
+    FontStyle bold
+}
+skinparam component {
+    BackgroundColor white
+    BorderColor black
+}
+skinparam database {
+    BackgroundColor white
+    BorderColor black
+    BorderThickness 5
+}
+skinparam DefaultFontName "Impact, Helvetica, sans-serif"
+skinparam DefaultFontSize 18
+skinparam DefaultFontStyle bold
+skinparam NoteFontStyle bold
+skinparam DefaultFontColor black
+skinparam ArrowColor black
+skinparam LinetThickness 8 
+
+title <size:80><b> Deployment Architecture of the Hybrid AI Multi-Organ Digital Twin Framework 
+
+node "External Web Services" <<Cloud>> as ExternalData {
+  database "PubChem PUG REST API" as PubChem <<REST API>>
+}
+
+node "Compute Layer: High-Performance Training System" <<Server/Cluster>> as ComputeLayer {
+  [NVIDIA GPU Drivers / CUDA] as CUDA <<Library>>
+  [ML Training Scripts] as TrainingScripts <<Python/PyTorch>>
+  artifact "Training Data" as TrainData <<Dataset>>
+  
+  CUDA --> TrainingScripts : "GPU Acceleration"
+  TrainData --> TrainingScripts : "Inputs to Training"
+}
+
+node "Presentation Layer: Streamlit Dashboard" <<Server/App Host>> as PresentationNode {
+  node "Client Browser" <<Web Browser>> {
+    [Streamlit Web UI] as ClientUI
+  }
+}
+
+node "Serving & Real-Time Prediction Pipeline" <<Container/VM>> as ServingLayer {
+  
+  component "Inference Engine" as InferenceEngine {
+    [Core AI Pipeline] as BackendEngine
+    artifact "Optimized Model Bundle (Multiorganmodel.pt)" as ModelPT <<File>>
+    [Precomputation Router & Cache] as Router
+    [Ontogeny & PK Simulator] as PKSim
+  }
+  
+  component "Persistent Local Storage" as Storage {
+    database "PRETRAINED_MULTIORGAN_PREDICTIONS_COMPLETED.csv" as PrecomputedDB <<CSV Database>>
+  }
+}
+
+ComputeLayer .up. ModelPT : "<<deploy>>"
+Storage .up. PrecomputedDB : "<<deploy>>"
+
+ClientUI --> PresentationNode : "1. Enters SMILES, Trimester, Duration"
+PresentationNode --> PubChem : "2. Dynamic API Request (Fetch Drug Title)"
+PubChem --> PresentationNode : "Returns Common/Experimental Name"
+
+PresentationNode --> Router : "3. Passes SMILES Payload"
+Router --> PrecomputedDB : "4a. Database Lookup (pd.read_csv Match)"
+Router --> BackendEngine : "4b. Cache Miss: Live Inference \n[RDKit Featurization & Morgan Fingerprints]"
+ModelPT --> BackendEngine : "Provides Multi-Organ Weights"
+
+BackendEngine --> PKSim : "Passes Raw Predicted Risks"
+PKSim --> PresentationNode : "5. Applies Trimester Ontogeny Factors & Simulates PK Differential Equations"
+PresentationNode --> ClientUI : "6. Renders Interactive Plotly Figures, Lipinski Profiles, & CSV Reports"
+
+note top of ServingLayer
+  **Streamlit Optimization Engine:**
+  - @st.cache_resource: Loads structural model bundle (Multiorganmodel.pt)
+  - @st.cache_data: Caches static prediction DB records
+  - RDKit: Generates 2048-bit Morgan Fingerprints + 10 structural descriptors dynamically
+end note
+
+@enduml
