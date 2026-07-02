@@ -14,6 +14,10 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from catboost import CatBoostRegressor 
 import xgboost as xgb 
 import lightgbm as lgb
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVR
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import RidgeCV
 
 
 def get_features_for_smiles(smiles_list): 
@@ -37,7 +41,6 @@ def get_features_for_smiles(smiles_list):
             X.append([0] * 2058) 
     return np.array(X) 
 
-
 def evaluate_model(y_true, y_pred, organ_label): 
     r2 = r2_score(y_true, y_pred) 
     rmse = np.sqrt(mean_squared_error(y_true, y_pred)) 
@@ -53,7 +56,6 @@ def evaluate_model(y_true, y_pred, organ_label):
     print(f"Spearman : {spearman:.4f}") 
     return {"R2": r2, "RMSE": rmse, "MAE": mae}
 
-
 class OOFLiverStackingPredictor:
     """
     Implements a GroupKFold Out-of-Fold Stacking Engine using defensive regularization
@@ -68,7 +70,6 @@ class OOFLiverStackingPredictor:
         self.lookup = dict(zip(self.df_ref[self.smiles_col], self.df_ref[self.pred_col]))
         self.global_mean = self.df_ref[self.pred_col].mean()
         
-       
         self.meta_learner = lgb.LGBMRegressor(
             n_estimators=150,
             learning_rate=0.015,
@@ -104,7 +105,6 @@ class OOFLiverStackingPredictor:
             fold_model.fit(X_tr, y_tr)
             oof_predictions[val_idx] = fold_model.predict(X_va)
             
-       
         self.meta_learner.fit(meta_features, y_true)
         return oof_predictions
 
@@ -113,6 +113,23 @@ class OOFLiverStackingPredictor:
         base_preds = np.array([self.lookup.get(smi, self.global_mean) for smi in smiles_list])
         meta_features = np.hstack([X_features, base_preds.reshape(-1, 1)])
         return self.meta_learner.predict(meta_features)
+
+
+# --- Dedicated custom ensemble wrapper to keep downstream predictions clean ---
+class PlacentaEnsembleRegressor:
+    def __init__(self, xgb_m, lgb_m, cat_m, w1=0.4, w2=0.3, w3=0.3):
+        self.xgb_m = xgb_m
+        self.lgb_m = lgb_m
+        self.cat_m = cat_m
+        self.w1 = w1
+        self.w2 = w2
+        self.w3 = w3
+
+    def predict(self, X):
+        p_xgb = self.xgb_m.predict(X)
+        p_lgb = self.lgb_m.predict(X)
+        p_cat = self.cat_m.predict(X)
+        return (self.w1 * p_xgb) + (self.w2 * p_lgb) + (self.w3 * p_cat)
 
 
 if __name__ == "__main__":
@@ -155,14 +172,52 @@ if __name__ == "__main__":
     kidney_model.fit(Xk_train, yk_train) 
     evaluate_model(yk_test, kidney_model.predict(Xk_test), "Kidney") 
 
-    
-    print("\n[MODULE C] Training Placenta Target Regressor (XGBoost)...") 
+
+    print("\n[MODULE C] Training Placenta Target Regressor (Feature-Gated XGBoost)...") 
     Xp_train, Xp_test, yp_train, yp_test = train_test_split(X_placenta, y_placenta, test_size=0.2, random_state=42) 
-    placenta_model = xgb.XGBRegressor(n_estimators=1000, max_depth=8, learning_rate=0.03, subsample=0.8, colsample_bytree=0.8, tree_method="hist") 
-    placenta_model.fit(Xp_train, yp_train) 
-    evaluate_model(yp_test, placenta_model.predict(Xp_test), "Placenta") 
 
     
+    # 1. Scale features 
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(Xp_train)
+    X_test_scaled = scaler.transform(Xp_test)
+
+    # 2. Prune feature noise using Recursive Feature Elimination
+    print("Eliminating multi-organ background noise features...")
+    feature_selector = RFE(
+        estimator=RidgeCV(alphas=np.logspace(-2, 3, 10)),
+        n_features_to_select=0.75, # Retain the top 75% most predictive features
+        step=0.05
+    )
+    X_train_gated = feature_selector.fit_transform(X_train_scaled, yp_train)
+    X_test_gated = feature_selector.transform(X_test_scaled)
+
+    # 3. Use your original, stable baseline weight generator
+    detector = LinearSVR(epsilon=0.1, C=1.0, random_state=42, max_iter=2000)
+    detector.fit(X_train_scaled, yp_train) 
+    train_errors = np.abs(yp_train - detector.predict(X_train_scaled))
+    sample_weights = 1.0 + (train_errors / np.max(train_errors))
+
+    # 4. Fit your high-capacity engine on the cleaner feature space
+    placenta_model = xgb.XGBRegressor(
+        objective="reg:squarederror",
+        n_estimators=1950,           
+        learning_rate=0.022,         
+        max_depth=9,                 
+        subsample=0.85,              
+        colsample_bytree=0.50,       
+        reg_alpha=0.6,               
+        reg_lambda=1.2,              
+        tree_method="hist",
+        random_state=42
+    ) 
+
+    # 5. Train on the pruned, gated matrix
+    placenta_model.fit(X_train_gated, yp_train, sample_weight=sample_weights) 
+
+    evaluate_model(yp_test, placenta_model.predict(X_test_gated), "Placenta Gated")
+
+
     print("\nCompiling comprehensive multi-organ prediction records...") 
     all_unique_smiles = pd.Series(pd.concat([ 
         liver_raw["canonical_smiles"], 
@@ -172,36 +227,45 @@ if __name__ == "__main__":
 
     X_full_descriptors = get_features_for_smiles(all_unique_smiles) 
 
+    # --- FIX FOR FEATURE SHAPE MISMATCH ---
+    # 1. Scale the complete descriptor matrix using the fitted transformer
+    X_full_scaled = scaler.transform(X_full_descriptors)
+    # 2. Gate the features down from 2058 to 1543 using the RFE mask
+    X_full_gated = feature_selector.transform(X_full_scaled)
+    # --------------------------------------
+
     full_df = pd.DataFrame({ 
         "SMILES": all_unique_smiles, 
         "Liver_Prediction_Risk": liver_engine.predict(all_unique_smiles, X_full_descriptors), 
-        "Placenta_Prediction_Risk": placenta_model.predict(X_full_descriptors), 
+        "Placenta_Prediction_Risk": placenta_model.predict(X_full_gated), # Map optimized gated array here
         "Kidney_Prediction_Risk": kidney_model.predict(X_full_descriptors) 
     }) 
 
-    
+
     full_df["Integrated_Weighted_Risk_Score"] = (0.4 * full_df["Liver_Prediction_Risk"]) + \
                                                 (0.3 * full_df["Placenta_Prediction_Risk"]) + \
                                                 (0.3 * full_df["Kidney_Prediction_Risk"]) 
 
     full_df.to_csv("PRETRAINED_MULTIORGAN_PREDICTIONS_COMPLETED.csv", index=False) 
 
-   
+
     print("\nSerializing updated deployment application bundles...") 
     joblib.dump(kidney_model, "Kidney_Model.pkl") 
     joblib.dump(placenta_model, "Placenta_Model.pkl") 
+
+    # Save components necessary to recreate the placenta preprocessing pipeline downstream
+    joblib.dump(scaler, "Placenta_Scaler.pkl")
+    joblib.dump(feature_selector, "Placenta_Feature_Selector.pkl")
 
     model_bundle = { 
         "liver": liver_engine, 
         "kidney": kidney_model, 
         "placenta": placenta_model 
     } 
-    
-    
+
     joblib.dump(model_bundle, "Multiorganmodel.pkl")
-    
-    
+
     liver_engine.df_ref = None
     torch.save(model_bundle, "Multiorganmodel.pt") 
 
-    print("\nExecution Completed. High-performance, publication-ready multi-organ pipelines successfully built.")
+    print("\nExecution Completed.")
