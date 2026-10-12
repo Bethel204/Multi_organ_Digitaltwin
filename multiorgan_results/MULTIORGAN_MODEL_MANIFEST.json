@@ -1,0 +1,25 @@
+{
+  "method": "two_stage_independent_models_plus_groupkfold_lightgbm_meta_refinement",
+  "liver_checkpoint": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\best_transfer_model.pt",
+  "placenta_model": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\pretrained_placenta_stacked_conformal_model.pkl",
+  "kidney_model": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\pretrained_kidney_stacked_conformal_model.pkl",
+  "liver_scaler_cache": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\liver_reconstructed_scalers.pkl",
+  "stage2_refiners": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\MULTIORGAN_STAGE2_REFINERS.pkl",
+  "prediction_csv": "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\PRETRAINED_MULTIORGAN_PREDICTIONS_RECONSTRUCTED.csv",
+  "graphs": [
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\liver_observed_vs_predicted.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\liver_residual_plot.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\placenta_observed_vs_predicted.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\placenta_residual_plot.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\kidney_observed_vs_predicted.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\kidney_residual_plot.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\multi_organ_r2_comparison.png",
+    "C:\\Users\\ugoch\\Learn\\Machine Learning\\Filtered datasets\\relevant\\compareNew\\multiorgan_results\\stage1_vs_stage2_r2.png"
+  ],
+  "weights": {
+    "liver": 0.4,
+    "placenta": 0.3,
+    "kidney": 0.3
+  },
+  "note": "The weighted score is a downstream summary index. Organ-level stage-2 predictions are produced by target-specific OOF LightGBM meta-refiners."
+}
