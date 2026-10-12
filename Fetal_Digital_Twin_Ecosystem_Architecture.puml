@@ -1,0 +1,180 @@
+@startuml Fetal_Digital_Twin_Ecosystem_Architecture
+skinparam monochrome false
+skinparam shadowing false
+skinparam packageStyle rect
+skinparam DefaultFontName Arial
+skinparam DefaultFontSize 12
+
+title System Architecture Diagram
+
+' --- Color Palette Definition ---
+!define CONFIG_COLOR #EBF5FB
+!define PATIENT_COLOR #FADBD8
+!define ENGINE_COLOR #FEF9E7
+!define KINETIC_COLOR #E8F8F5
+!define BIOLOGY_COLOR #F3E5F5
+!define STORAGE_COLOR #EAEDED
+!define UI_COLOR #FCF3CF
+
+package "1. Initialization Subsystem" {
+    class Config CONFIG_COLOR {
+        + MODEL_PATH : str
+        + DATA_PATH : str
+        + FETAL_TOXICITY_CEILING : float
+        + TRIMESTER_ONTOGENY : dict
+        -- Global Baselines --
+        + MATERNAL_FLOW_LIVER : float
+        + MATERNAL_FLOW_PLACENTA : float
+        + MATERNAL_RENAL_CLEARANCE : float
+    }
+
+    class Patient PATIENT_COLOR {
+        + trimester : str
+        + fetal_liver_flow : float
+        + fetal_kidney_flow : float
+        + cyp3a7_expression : float
+        + fetal_blood_volume : float
+        __init__(trimester, custom_cyp3a7)
+    }
+
+    class Dosing STORAGE_COLOR {
+        + initial_dose_mg : float
+        + repeated_dose_mg : float
+        + interval_hrs : float
+        + repeated : bool
+        + get_dose_at_time(t, dt) : float
+    }
+}
+
+package "2. Core Executing Logic" {
+    class TwinEngine ENGINE_COLOR {
+        + smiles : str
+        + state : DigitalTwinState
+        + history : SimulationHistory
+        + ai_pipeline : AIPredictionPipeline
+        + initialize_twin_state()
+        + run_simulation(duration, dt, observations) : pd.DataFrame
+        + run_monte_carlo_uncertainty(duration, iterations, dt) : dict
+    }
+}
+
+package "3. Predictive & Molecular Subsystem" {
+    class AIPrediction UI_COLOR {
+        + model_bundle : dict
+        + db_predictions : pd.DataFrame
+        + load_resources()
+        + canonicalize(smiles) : str
+        + extract_features(smiles) : np.ndarray
+        + predict_organ_risks(smiles) : dict
+    }
+
+    class Explainability BIOLOGY_COLOR {
+        + render_feature_importance_chart(model_bundle) : go.Figure
+    }
+
+    class Utils STORAGE_COLOR {
+        + validate_and_canonicalize_smiles(smiles) : str
+        + fetch_pubchem_title(smiles) : str
+    }
+}
+
+package "4. Mechanistic Kinetic Engines" {
+    class PKPD KINETIC_COLOR {
+        + advance_state_adaptive(state, patient, dose, ai_modifiers, dt) : DigitalTwinState
+    }
+
+    class Physiology KINETIC_COLOR {
+        + calculate_nonlinear_toxicity(fetal_conc) : float
+        + evaluate_ode_derivatives(state_arr, ...) : list
+    }
+
+    class Organs BIOLOGY_COLOR {
+        + compute_passive_flux(a, b, ps) : float
+    }
+    
+    class Placenta BIOLOGY_COLOR {
+        + compute_bidirectional_transfer(m_c, f_c, risk) : tuple
+    }
+}
+
+package "5. Adaptive Feedback & Analytical Subsystem" {
+    class State STORAGE_COLOR {
+        -- Data Structs --
+        + DigitalTwinState : dataclass
+        + SimulationHistory : class
+        + to_array() : list
+        + update_from_array(arr)
+    }
+
+    class Feedback ENGINE_COLOR {
+        + assimilate_observations(state, obs_dict, weight) : DigitalTwinState
+    }
+
+    class AdaptiveLearning UI_COLOR {
+        + buffered_observations : list
+        + queue_new_observation(...)
+        + trigger_model_alignment() : bool
+    }
+}
+
+package "6. Presentation Layer & Reporting" {
+    class Visualization UI_COLOR {
+        + generate_concentration_curves(df) : go.Figure
+        + generate_uncertainty_bounds(mc_results) : go.Figure
+    }
+
+    class Reports STORAGE_COLOR {
+        + calculate_pk_metrics(df) : dict
+        + export_text_summary(metrics, name) : str
+    }
+
+    class App UI_COLOR {
+        -- Streamlit Entry Core --
+        + Main UI Rendering Loop()
+    }
+    
+    class Req STORAGE_COLOR {
+        -- Dependency Matrix Pins --
+    }
+}
+
+' --- Dependency Vector / Architecture Routing Connections ---
+
+' Config mappings
+Config .down.> Patient : Feeds Flow Maps
+Config .down.> TwinEngine : Supplies Path Bounds
+
+' Patient and Dosing dependencies
+Patient -down-> TwinEngine
+Dosing -down-> TwinEngine
+
+' Engine Core distribution lines
+TwinEngine -down-> AIPrediction : Requests QSAR Risks
+TwinEngine -down-> PKPD : Drives Time-Steps
+TwinEngine -right-> Feedback : Dispatches Observational Data
+
+' Predictive paths
+AIPrediction -down-> Explainability : Evaluates Model Bundles
+AIPrediction .left.> Utils : Canonicalizes Molecular Data
+
+' Pharmacokinetic & Physical Equations loops
+PKPD -down-> Physiology : Solves ODE Matrix
+Physiology -down-> Organs : Calculates Flux Boundaries
+Organs <|-- Placenta
+
+' State snapshots
+PKPD -right-> State : Mutates Core Arrays
+TwinEngine -right-> State : Snapshots Historical Frames
+
+' Assimilation updates
+Feedback -down-> AdaptiveLearning : Buffers Alignment Exceptions
+
+' Delivery and UI Output rendering
+TwinEngine -down-> Visualization : Maps Population Curves
+TwinEngine -down-> Reports : Calculates Cmax/AUC
+Visualization -down-> App : Renders Charts
+Reports -down-> App : Delivers Summary Report Card
+Explainability -down-> App : Updates Plots
+App .right.> Req : Installs Baseline Sandbox Environment
+
+@endum
