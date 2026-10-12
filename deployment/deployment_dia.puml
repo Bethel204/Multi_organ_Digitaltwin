@@ -1,0 +1,75 @@
+@startuml
+
+skinparam BackgroundColor #FFFFFF
+skinparam RoundCorner 6
+skinparam Shadowing true
+skinparam DefaultTextAlignment center
+skinparam DefaultFontName "Calibri"
+skinparam DefaultFontSize 16
+skinparam DefaultFontStyle bold
+
+
+skinparam component {
+    BackgroundColor #4F81BD
+    BorderColor #1F497D
+    BorderThickness 2.5
+    FontColor #FFFFFF
+    FontSize 18
+}
+
+
+skinparam node {
+    BackgroundColor #F2F5F8
+    BorderColor #1F497D
+    BorderThickness 2.5
+    FontColor #1F497D
+    FontSize 20
+}
+
+
+skinparam Arrow {
+    Color #1F497D
+    Thickness 4.0
+    FontColor #1F497D
+    FontSize 30
+    FontStyle italic
+}
+
+title <size:180><b>Deployment Diagram</b></size>\n\n\n\\n\n
+
+
+
+[PATIENT / DRUG INPUT\n\n(SMILES + Dose + Gestational Age)\n] as Input
+
+[Molecular Feature Extraction\n\n(Descriptors + Morgan Fingerprints)\n] as Extraction
+
+node "AI Prediction Layer" {
+    [Liver (CYP3A7)\n--\nPlacenta Transfer\n--\nKidney Clearance (OAT1)] as AI
+}
+
+[Organ-specific PK Parameters Generated\n\n(Intrinsic Clearance, Permeability, etc.)\n] as PK
+
+node "PBPK Simulation Engine" #EAF1F5 {
+    [Maternal Blood\n--\nPlacenta\n--\nFetal Liver\n--\nFetal Kidney\n--\nDrug Concentration vs Time] as Engine
+}
+
+[Physiological State Update\n\n(Drug Concentration, Enzyme Activity,\nOrgan Exposure, Gestational Changes)\n] as Update
+
+[Dashboard / Clinical Decision Support\n\n• Risk Score\n• Concentration Curves\n• SHAP Explanations\n• Confidence Intervals\n] as Dashboard
+
+
+Input -right-> Extraction
+Extraction -right-> AI
+
+
+AI -down-> PK
+
+
+PK -right-> Engine
+Engine -right-> Update
+Update -right-> Dashboard
+
+
+Update -left-> Engine : Closed-Loop Feedback\n(Next Time Step)
+
+@enduml
