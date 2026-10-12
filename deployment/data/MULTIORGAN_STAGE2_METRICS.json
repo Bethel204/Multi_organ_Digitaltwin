@@ -1,0 +1,5 @@
+{
+  "liver_stage2_oof": {"R2": 0.9028, "RMSE": 0.3372, "MAE": 0.1631, "Pearson": 0.9503, "Spearman": 0.9367},
+  "placenta_stage2_oof": {"R2": 0.7865, "RMSE": 0.6567, "MAE": 0.4422, "Pearson": 0.8870, "Spearman": 0.8915},
+  "kidney_stage2_oof": {"R2": 0.7584, "RMSE": 0.8306, "MAE": 0.5962, "Pearson": 0.8723, "Spearman": 0.8785}
+}
